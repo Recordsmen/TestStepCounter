@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">My Application</string>
+    <string name="accelerometer">Accelerometer</string>
+    <string name="gyroscope">Gyroscope</string>
+    <string name="steps">Steps</string>
+    <string name="compass">Compass</string>
+    <string name="startStop">Start/Stop</string>
+    <string name="fps">FPS</string>
+    <string-array name="dropDown">
+        <item>30</item>
+        <item>40</item>
+        <item>50</item>
+        <item>60</item>
+        <item>70</item>
+    </string-array>
+</resources>
