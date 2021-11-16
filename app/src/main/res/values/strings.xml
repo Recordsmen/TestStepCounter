@@ -6,6 +6,7 @@
     <string name="compass">Compass</string>
     <string name="startStop">Start/Stop</string>
     <string name="fps">FPS</string>
+    <string name="subject_name">Subject name</string>
     <string-array name="dropDown">
         <item>30</item>
         <item>40</item>
