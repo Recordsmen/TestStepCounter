@@ -9,6 +9,8 @@ import android.view.View
 import android.widget.Spinner
 import android.widget.ArrayAdapter
 import android.widget.TextView
+import java.lang.Math.toDegrees
+import kotlin.math.PI
 
 
 class MainActivity : AppCompatActivity() {
@@ -22,6 +24,10 @@ class MainActivity : AppCompatActivity() {
 
     private var manager : SensorManager? = null
 
+    private var floatGravity = FloatArray(3)
+    private var floatGeoMagnetic = FloatArray(3)
+    private var floatOrientation = FloatArray(3)
+    private var floatRotationMatrix = FloatArray(9)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,12 +41,14 @@ class MainActivity : AppCompatActivity() {
         compass = findViewById(R.id.tv_compass)
 
         manager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
         val listener: SensorEventListener = object: SensorEventListener{
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
 
             }
 
             override fun onSensorChanged(event: SensorEvent?){
+
                 if (event?.sensor?.type == Sensor.TYPE_GYROSCOPE) {
                     gyroscope.text = "Gyroscope: x: ${event?.values[0]}"
                     gyroscope.append(" y: ${event?.values[1]}")
@@ -50,11 +58,33 @@ class MainActivity : AppCompatActivity() {
                     accelerometer.text = "Accelerometer: x: ${event?.values[0]}"
                     accelerometer.append(" y: ${event?.values[1]}")
                     accelerometer.append(" z: ${event?.values[2]}")
+                    floatGravity = event.values
+
                 }
                 if (event?.sensor?.type == Sensor.TYPE_MAGNETIC_FIELD) {
-                    compass.text = "Compass: x: ${event?.values[0]}"
-                    compass.append(" y: ${event?.values[1]}")
-                    compass.append(" z: ${event?.values[2]}")
+                    floatGeoMagnetic = event.values
+                    SensorManager.getRotationMatrix(floatRotationMatrix,null,floatGravity,floatGeoMagnetic)
+                    SensorManager.getOrientation(floatRotationMatrix,floatOrientation)
+
+                    var radians = ((toDegrees(floatOrientation[0].toDouble()) + 360).toFloat() % 360)
+
+                    compass.text =
+                        when (radians) {
+                            in 0.0..22.0 -> "Compass: North $radians "
+                            in 22.0..67.0 ->"Compass: North East $radians"
+                            in 67.0..112.0 -> "Compass: East $radians"
+                            in 112.0..157.0 -> "Compass: South East $radians"
+                            in 157.0..202.0 -> "Compass: South $radians"
+                            in 202.0..247.0 -> "Compass: South West $radians"
+                            in 247.0..292.0 -> "Compass: West $radians"
+                            in 292.0..337.0 -> "Compass: North West $radians"
+                            in 337.0..360.0 ->"Compass: North $radians"
+                            else -> "Compass: Compass nor active"
+                        }
+
+                    //compass.text = "Compass: x: ${event?.values[0]}"
+                    //compass.append(" y: ${event?.values[1]}")
+                    //compass.append(" z: ${event?.values[2]}")
                 }
             }
 
@@ -70,9 +100,6 @@ class MainActivity : AppCompatActivity() {
         spinner_fps.setSelection(3)
 
         var change = false
-        var x_gyroscope = 0
-        var y_gyroscope = 0
-        var z_gyroscope = 0
 
         start.setOnClickListener(View.OnClickListener {
             change = when (change) {
