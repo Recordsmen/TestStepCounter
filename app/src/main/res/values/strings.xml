@@ -7,6 +7,8 @@
     <string name="startStop">Start/Stop</string>
     <string name="fps">FPS</string>
     <string name="subject_name">Subject name</string>
+    <string name="permission_rationale">Location data is used as part of the Google Fit API</string>
+    <string name="ok">OK</string>
     <string-array name="dropDown">
         <item>30</item>
         <item>40</item>
