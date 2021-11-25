@@ -32,18 +32,12 @@ const val GOOGLE_FIT_PERMISSIONS_REQUEST_CODE = 1
 const val MY_PERMISSIONS_REQUEST_ACTIVITY_RECOGNITION = 2
 
 
-enum class FitActionRequestCode {
-    SUBSCRIBE
-}
-
 class MainActivity : AppCompatActivity() {
-
 
     private val fitnessOptions = FitnessOptions.builder()
         .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
         .addDataType(DataType.AGGREGATE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
         .build()
-
 
     private lateinit var spinner_fps: Spinner
     private lateinit var start: Button
@@ -60,14 +54,19 @@ class MainActivity : AppCompatActivity() {
     private var floatRotationMatrix = FloatArray(9)
 
     var countSteps:String = "Steps: 0 "
-    var fps:Long = 10
     var change:Boolean = false
+    var fps = arrayOf("30", "40", "50", "60", "70")
+    var selectedFps = 60
+    var stepsCount = 0
 
     val datalistener = OnDataPointListener { dataPoint ->
-        for (field in dataPoint.dataType.fields) {
+        for (field in dataPoint.dataType.fields)
+        {
             val value = dataPoint.getValue(field)
             Log.i(TAG, "Detected DataPoint field: ${field.name}")
             Log.i(TAG, "Detected DataPoint value: $value")
+            stepsCount = stepsCount+value.asInt()
+            countSteps = stepsCount.toString()
         }
     }
 
@@ -107,13 +106,14 @@ class MainActivity : AppCompatActivity() {
                     gyroscope.append(" y: ${event?.values[1]}")
                     gyroscope.append(" z: ${event?.values[2]}")
                 }
+
                 if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
                     accelerometer.text = "Accelerometer: x: ${event?.values[0]}"
                     accelerometer.append(" y: ${event?.values[1]}")
                     accelerometer.append(" z: ${event?.values[2]}")
                     floatGravity = event.values
-
                 }
+
                 if (event?.sensor?.type == Sensor.TYPE_MAGNETIC_FIELD) {
                     floatGeoMagnetic = event.values
                     SensorManager.getRotationMatrix(
@@ -122,6 +122,7 @@ class MainActivity : AppCompatActivity() {
                         floatGravity,
                         floatGeoMagnetic
                     )
+
                     SensorManager.getOrientation(floatRotationMatrix, floatOrientation)
 
                     var radians =
@@ -144,23 +145,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val adapter: ArrayAdapter<*> = ArrayAdapter.createFromResource(
-            this, R.array.dropDown,
-            android.R.layout.simple_spinner_item
-        )
+        val adapter: ArrayAdapter<String> =
+            ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, fps)
 
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinner_fps.adapter = adapter
         spinner_fps.setSelection(3)
 
-//        fps = when (spinner_fps) {
-//            "30" -> 33
-//            "40" -> 25
-//            "50" -> 20
-//            "60" -> 16
-//            "70" -> 14
-//            else -> 0
-//        }
+        selectedFps = when (spinner_fps.selectedItem) {
+            "30" -> 33
+            "40" -> 25
+            "50" -> 20
+            "60" -> 16
+            "70" -> 14
+            else -> 0
+        }
+
         Fitness.getSensorsClient(this, GoogleSignIn.getAccountForExtension(this, fitnessOptions))
             .findDataSources(
                 DataSourcesRequest.Builder()
@@ -182,18 +182,7 @@ class MainActivity : AppCompatActivity() {
                 Log.e(TAG, "Find data sources request failed", e)
             }
 
-        fun dataPointlistener () {
 
-            val datalistener = OnDataPointListener { dataPoint ->
-                for (field in dataPoint.dataType.fields) {
-                    val value = dataPoint.getValue(field)
-                    Log.i(TAG, "Detected DataPoint field: ${field.name}")
-                    Log.i(TAG, "Detected DataPoint value: $value")
-                    countSteps = value.toString()
-                }
-            }
-
-        }
         start.setOnClickListener(View.OnClickListener {
             change = when (change) {
                 false -> true
@@ -212,8 +201,6 @@ class MainActivity : AppCompatActivity() {
 
             when (change) {
                 true -> {
-                    dataPointlistener()
-
                     Fitness.getSensorsClient(
                         this,
                         GoogleSignIn.getAccountForExtension(this, fitnessOptions)
@@ -221,7 +208,7 @@ class MainActivity : AppCompatActivity() {
                         .add(
                             SensorRequest.Builder()
                                 .setDataType(DataType.AGGREGATE_STEP_COUNT_DELTA) // Can't be omitted.
-                                .setSamplingRate( 2 ,TimeUnit.SECONDS )
+                                .setSamplingRate(selectedFps.toLong(),TimeUnit.MILLISECONDS )
                                 .build(),
                             datalistener
                         )
@@ -233,8 +220,6 @@ class MainActivity : AppCompatActivity() {
                         }
                 }
                 false -> {
-                    dataPointlistener()
-
                     Fitness.getSensorsClient(
                         this,
                         GoogleSignIn.getAccountForExtension(this, fitnessOptions)
@@ -350,116 +335,3 @@ class MainActivity : AppCompatActivity() {
 
     }
 }
-//checkPermissionsAndRun(FitActionRequestCode.SUBSCRIBE) // v classe
-
-//    }
-//    private fun checkPermissionsAndRun(fitActionRequestCode: FitActionRequestCode) {
-//        if (permissionApproved()) {
-//            fitSignIn(fitActionRequestCode)
-//        } else {
-//            requestRuntimePermissions(fitActionRequestCode)
-//        }
-//    }
-//
-//    private fun fitSignIn(requestCode: FitActionRequestCode) {
-//        if (oAuthPermissionsApproved()) {
-//            performActionForRequestCode(requestCode)
-//        } else {
-//            requestCode.let {
-//                GoogleSignIn.requestPermissions(
-//                    this,
-//                    requestCode.ordinal,
-//                    getGoogleAccount(), fitnessOptions)
-//            }
-//        }
-//    }
-//
-//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-//        super.onActivityResult(requestCode, resultCode, data)
-//
-//        when (resultCode) {
-//            RESULT_OK -> {
-//                val postSignInAction = FitActionRequestCode.values()[requestCode]
-//                postSignInAction.let {
-//                    performActionForRequestCode(postSignInAction)
-//                }
-//            }
-//            else -> oAuthErrorMsg(requestCode, resultCode)
-//        }
-//    }
-//
-//    private fun performActionForRequestCode(requestCode: FitActionRequestCode) = when (requestCode) {
-//        FitActionRequestCode.SUBSCRIBE -> subscribe()
-//    }
-//
-//    private fun oAuthPermissionsApproved() = GoogleSignIn.hasPermissions(getGoogleAccount(), fitnessOptions)
-//
-//    private fun getGoogleAccount() = GoogleSignIn.getAccountForExtension(this, fitnessOptions)
-//
-//    private fun subscribe() {
-//        Fitness.getRecordingClient(this, getGoogleAccount())
-//            .subscribe(DataType.TYPE_STEP_COUNT_CUMULATIVE)
-//            .addOnCompleteListener { task ->
-//                if (task.isSuccessful) {
-//                    Log.i(TAG, "Successfully subscribed!")
-//                } else {
-//                    Log.w(TAG, "There was a problem subscribing.", task.exception)
-//                }
-//            }
-//    }
-//    // не проходит проверку
-//    private fun permissionApproved(): Boolean {
-//        val approved = if (runningQOrLater) {
-//            PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
-//                this,
-//                Manifest.permission.ACTIVITY_RECOGNITION)
-//        } else {
-//            true
-//        }
-//        return approved
-//    }
-//
-//    private fun requestRuntimePermissions(requestCode: FitActionRequestCode) {
-//
-//        val shouldProvideRationale =
-//            ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACTIVITY_RECOGNITION)
-//
-//        requestCode.let {
-//            if (shouldProvideRationale) {
-//                Log.i(TAG, "Displaying permission rationale to provide additional context.")
-//                Snackbar.make(
-//                    findViewById(R.id.lay_main),
-//                    R.string.permission_rationale,
-//                    Snackbar.LENGTH_INDEFINITE)
-//                    .setAction(R.string.ok) {
-//                        // Request permission
-//                        ActivityCompat.requestPermissions(this,
-//                            arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
-//                            requestCode.ordinal)
-//                    }
-//                    .show()
-//            } else {
-//                Log.i(TAG, "Requesting permission")
-//                // Request permission. It's possible this can be auto answered if device policy
-//                // sets the permission in a given state or the user denied the permission
-//                // previously and checked "Never ask again".
-//                ActivityCompat.requestPermissions(this,
-//                    arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
-//                    requestCode.ordinal)
-//            }
-//        }
-//    }
-//
-//    private fun oAuthErrorMsg(requestCode: Int, resultCode: Int) {
-//        val message = """
-//            There was an error signing into Fit. Check the troubleshooting section of the README
-//            for potential issues.
-//            Request code was: $requestCode
-//            Result code was: $resultCode
-//        """.trimIndent()
-//        Log.e(TAG, message)
-//    }
-//
-//
-//
-//}
