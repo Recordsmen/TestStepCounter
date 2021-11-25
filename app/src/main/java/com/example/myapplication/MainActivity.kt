@@ -2,10 +2,8 @@ package com.example.myapplication
 
 import android.Manifest
 import android.app.Activity
-import android.app.Application
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.hardware.*
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
@@ -18,9 +16,12 @@ import androidx.core.app.ActivityCompat
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.fitness.Fitness
 import com.google.android.gms.fitness.FitnessOptions
+import com.google.android.gms.fitness.data.DataSource
 import com.google.android.gms.fitness.data.DataType
 import com.google.android.gms.fitness.request.DataReadRequest
-import com.google.android.material.snackbar.Snackbar
+import com.google.android.gms.fitness.request.DataSourcesRequest
+import com.google.android.gms.fitness.request.OnDataPointListener
+import com.google.android.gms.fitness.request.SensorRequest
 import java.lang.Math.toDegrees
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -58,14 +59,32 @@ class MainActivity : AppCompatActivity() {
     private var floatOrientation = FloatArray(3)
     private var floatRotationMatrix = FloatArray(9)
 
+    var countSteps:String = "Steps: 0 "
+    var fps:Long = 10
+    var change:Boolean = false
+
+    val datalistener = OnDataPointListener { dataPoint ->
+        for (field in dataPoint.dataType.fields) {
+            val value = dataPoint.getValue(field)
+            Log.i(TAG, "Detected DataPoint field: ${field.name}")
+            Log.i(TAG, "Detected DataPoint value: $value")
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        ActivityCompat.requestPermissions(this,
-            arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
-            MY_PERMISSIONS_REQUEST_ACTIVITY_RECOGNITION)
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(
+                Manifest.permission.ACTIVITY_RECOGNITION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ),
+            MY_PERMISSIONS_REQUEST_ACTIVITY_RECOGNITION
+        )
 
         start = findViewById(R.id.btn_start_stop)
         spinner_fps = findViewById(R.id.spinner_fps)
@@ -121,13 +140,8 @@ class MainActivity : AppCompatActivity() {
                             in 337.0..360.0 -> "Compass: North $radians"
                             else -> "Compass: Compass nor active"
                         }
-
-                    //compass.text = "Compass: x: ${event?.values[0]}"
-                    //compass.append(" y: ${event?.values[1]}")
-                    //compass.append(" z: ${event?.values[2]}")
                 }
             }
-
         }
 
         val adapter: ArrayAdapter<*> = ArrayAdapter.createFromResource(
@@ -139,8 +153,47 @@ class MainActivity : AppCompatActivity() {
         spinner_fps.adapter = adapter
         spinner_fps.setSelection(3)
 
-        var change = false
+//        fps = when (spinner_fps) {
+//            "30" -> 33
+//            "40" -> 25
+//            "50" -> 20
+//            "60" -> 16
+//            "70" -> 14
+//            else -> 0
+//        }
+        Fitness.getSensorsClient(this, GoogleSignIn.getAccountForExtension(this, fitnessOptions))
+            .findDataSources(
+                DataSourcesRequest.Builder()
+                    .setDataTypes(DataType.AGGREGATE_STEP_COUNT_DELTA)
+                    .setDataSourceTypes(DataSource.TYPE_RAW)
+                    .build()
+            )
+            .addOnSuccessListener { dataSources ->
+                dataSources.forEach {
+                    Log.i(TAG, "Data source found: ${it.streamIdentifier}")
+                    Log.i(TAG, "Data Source type: ${it.dataType.name}")
 
+                    if (it.dataType == DataType.AGGREGATE_STEP_COUNT_DELTA) {
+                        Log.i(TAG, "Data source for STEP_COUNT_DELTA found!")
+                    }
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Find data sources request failed", e)
+            }
+
+        fun dataPointlistener () {
+
+            val datalistener = OnDataPointListener { dataPoint ->
+                for (field in dataPoint.dataType.fields) {
+                    val value = dataPoint.getValue(field)
+                    Log.i(TAG, "Detected DataPoint field: ${field.name}")
+                    Log.i(TAG, "Detected DataPoint value: $value")
+                    countSteps = value.toString()
+                }
+            }
+
+        }
         start.setOnClickListener(View.OnClickListener {
             change = when (change) {
                 false -> true
@@ -153,10 +206,48 @@ class MainActivity : AppCompatActivity() {
             }
 
             when (change) {
-                true -> steps.text = "0"
-                false -> steps.text = "0"
+                true -> steps.text = countSteps
+                false -> steps.text = countSteps
             }
 
+            when (change) {
+                true -> {
+                    dataPointlistener()
+
+                    Fitness.getSensorsClient(
+                        this,
+                        GoogleSignIn.getAccountForExtension(this, fitnessOptions)
+                    )
+                        .add(
+                            SensorRequest.Builder()
+                                .setDataType(DataType.AGGREGATE_STEP_COUNT_DELTA) // Can't be omitted.
+                                .setSamplingRate( 2 ,TimeUnit.SECONDS )
+                                .build(),
+                            datalistener
+                        )
+                        .addOnSuccessListener {
+                            Log.i(TAG, "Listener registered!")
+                        }
+                        .addOnFailureListener {
+                            Log.e(TAG, "Listener not registered.")
+                        }
+                }
+                false -> {
+                    dataPointlistener()
+
+                    Fitness.getSensorsClient(
+                        this,
+                        GoogleSignIn.getAccountForExtension(this, fitnessOptions)
+                    )
+                        .remove(datalistener)
+                        .addOnSuccessListener {
+                            Log.i(TAG, "Listener was removed!")
+                        }
+                        .addOnFailureListener {
+                            Log.i(TAG, "Listener was not removed.")
+                        }
+                }
+            }
             when (change) {
                 true -> {
                     val sensor_gyroscope = manager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
@@ -214,7 +305,7 @@ class MainActivity : AppCompatActivity() {
         }
 
 
-        //checkPermissionsAndRun(FitActionRequestCode.SUBSCRIBE)
+
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -259,6 +350,7 @@ class MainActivity : AppCompatActivity() {
 
     }
 }
+//checkPermissionsAndRun(FitActionRequestCode.SUBSCRIBE) // v classe
 
 //    }
 //    private fun checkPermissionsAndRun(fitActionRequestCode: FitActionRequestCode) {
